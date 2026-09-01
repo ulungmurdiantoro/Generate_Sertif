@@ -1,0 +1,184 @@
+{% extends "base.html" %}
+{% block page %}editor{% endblock %}
+{% block title %}Editor Template · {{ settings.app_name }}{% endblock %}
+{% block content %}
+<div id="editor" data-template-id="{{ template_id }}">
+  <div class="row between">
+    <h1 id="tpl-title">Editor Template</h1>
+    <div class="row gap">
+      <a id="go-generate" class="btn" href="/templates/{{ template_id }}/generate">Lanjut ke Generate →</a>
+      <button id="btn-save" class="btn primary">Simpan</button>
+    </div>
+  </div>
+
+  <div class="split">
+    <section class="panel">
+      <h2>Info Kanvas</h2>
+      <div class="form-grid">
+        <label>Nama Template <input id="f-name" type="text"></label>
+        <label>Lebar Kanvas (pt) <input id="f-cw" type="number" step="1"></label>
+        <label>Tinggi Kanvas (pt) <input id="f-ch" type="number" step="1"></label>
+        <label>Resolusi PDF (DPI) <input id="f-res" type="number" step="1"></label>
+      </div>
+      <p class="hint">Samakan dengan ukuran desain di Canva. A4 landscape = 842 × 595 pt.</p>
+
+      <h2>Aset</h2>
+      <div class="asset-row">
+        <div class="asset">
+          <strong>Background Depan</strong>
+          <div id="bg-front-name" class="mono"></div>
+          <input type="file" id="up-bg-front" accept="image/*">
+        </div>
+        <div class="asset">
+          <strong>Background Belakang <span class="hint">(opsional)</span></strong>
+          <div id="bg-back-name" class="mono"></div>
+          <input type="file" id="up-bg-back" accept="image/*">
+        </div>
+      </div>
+
+      <div class="row between">
+        <h2>Field Teks</h2>
+        <button id="btn-add-field" class="btn">+ Tambah Field</button>
+      </div>
+      <p class="hint">
+        Field Teks = potongan tulisan yang dicetak di atas background (mis. nama
+        peserta, nomor sertifikat, tanggal). Tambah satu field untuk tiap tulisan.
+      </p>
+      <details class="field-guide" open>
+        <summary>❔ Penjelasan tiap kolom (buka kalau bingung)</summary>
+        <dl>
+          <dt>Key</dt>
+          <dd>Kode kolom data. <b>Harus sama persis</b> dengan judul kolom di file
+            Excel/CSV pada langkah Generate (contoh: <code>nama</code>,
+            <code>nomor</code>). Tulis tanpa spasi.</dd>
+          <dt>Label</dt>
+          <dd>Nama tampilan yang bebas Anda tentukan, hanya untuk memudahkan Anda
+            sendiri. <b>Tidak</b> ikut tercetak di sertifikat.</dd>
+          <dt>Halaman</dt>
+          <dd>Centang di halaman mana tulisan ini dicetak. <b>1</b> = background
+            depan, <b>2</b> = background belakang.</dd>
+          <dt>Perataan</dt>
+          <dd>Titik acuan posisi X. <b>Kiri</b> = X di tepi kiri tulisan.
+            <b>Tengah</b> = X di titik tengah tulisan (paling pas untuk nama
+            peserta agar selalu center). <b>Kanan</b> = X di tepi kanan tulisan.</dd>
+          <dt>Posisi X (pt)</dt>
+          <dd>Jarak mendatar dari tepi kiri kertas. Satuannya sama seperti angka
+            posisi di Canva. Kosongkan = otomatis ke tengah kanvas (kalau
+            Perataan = Tengah).</dd>
+          <dt>Posisi Y (pt)</dt>
+          <dd>Jarak dari tepi atas kertas ke baris tulisan. Makin besar angkanya,
+            makin ke bawah.</dd>
+          <dt>Font</dt>
+          <dd>Jenis huruf. Pilih dari font yang sudah di-upload.
+            <code>(fallback)</code> = huruf bawaan sistem.</dd>
+          <dt>Upload font baru</dt>
+          <dd>Menambah file font <code>.ttf</code> / <code>.otf</code>. Setelah
+            di-upload, font langsung dipakai untuk field ini dan bisa dipilih
+            field lain.</dd>
+          <dt>Ukuran Font (pt)</dt>
+          <dd>Besar huruf. Pakai angka yang sama dengan ukuran font di Canva.</dd>
+          <dt>Ukuran Min (pt)</dt>
+          <dd>Batas paling kecil huruf saat menyusut otomatis. Bekerja bersama
+            "Lebar Maks". Boleh dikosongkan.</dd>
+          <dt>Lebar Maks (pt)</dt>
+          <dd>Lebar area tulisan. Kalau tulisan lebih panjang dari ini, ukuran
+            huruf otomatis dikecilkan bertahap sampai "Ukuran Min". Berguna untuk
+            nama yang panjang. Kosongkan = huruf tidak pernah dikecilkan.</dd>
+          <dt>Warna</dt>
+          <dd>Warna huruf. Klik kotak untuk memilih.</dd>
+          <dt>Contoh Nilai</dt>
+          <dd>Teks contoh untuk <b>Pratinjau saja</b> (mis. "Budi Santoso"). Saat
+            Generate, otomatis diganti data asli dari Excel/CSV.</dd>
+        </dl>
+      </details>
+      <details class="fonts-manage">
+        <summary>Font terpasang di template (<span id="font-count">0</span>)</summary>
+        <ul id="font-list" class="chips"></ul>
+      </details>
+      <div id="fields"></div>
+    </section>
+
+    <aside class="panel preview">
+      <div class="row between">
+        <h2>Pratinjau</h2>
+        <div class="row gap">
+          <button class="btn tab active" data-page="1">Hal. 1</button>
+          <button class="btn tab" data-page="2">Hal. 2</button>
+          <button id="btn-refresh" class="btn" title="Simpan lalu render ulang">↻</button>
+        </div>
+      </div>
+      <div class="preview-frame">
+        <img id="preview-img" alt="Upload background depan lalu tekan ↻ untuk melihat pratinjau">
+      </div>
+      <p class="hint">Pratinjau memakai nilai <em>Contoh</em> tiap field. Tombol ↻ menyimpan dulu, baru render.</p>
+    </aside>
+  </div>
+</div>
+
+<template id="field-tpl">
+  <div class="field-card">
+    <div class="form-grid">
+      <label>Key
+        <input data-k="key" type="text" placeholder="mis. nama">
+        <small class="fh">Kode kolom — samakan dengan judul kolom di Excel. Tanpa spasi.</small>
+      </label>
+      <label>Label
+        <input data-k="label" type="text">
+        <small class="fh">Nama tampilan saja. Tidak dicetak di sertifikat.</small>
+      </label>
+      <div class="fld">Halaman
+        <span class="checks">
+          <label><input data-k="page1" type="checkbox"> 1</label>
+          <label><input data-k="page2" type="checkbox"> 2</label>
+        </span>
+        <small class="fh">1 = background depan, 2 = background belakang.</small>
+      </div>
+      <label>Perataan
+        <select data-k="align">
+          <option value="left">Kiri</option>
+          <option value="center">Tengah</option>
+          <option value="right">Kanan</option>
+        </select>
+        <small class="fh">Titik acuan X. Untuk nama peserta biasanya "Tengah".</small>
+      </label>
+      <label>Posisi X (pt)
+        <input data-k="x" type="number" step="1" placeholder="auto">
+        <small class="fh">Jarak dari kiri kertas. Kosong = otomatis ke tengah.</small>
+      </label>
+      <label>Posisi Y (pt)
+        <input data-k="y" type="number" step="1">
+        <small class="fh">Jarak dari atas kertas. Angka besar = makin ke bawah.</small>
+      </label>
+      <label>Font
+        <select data-k="font"></select>
+        <small class="fh">Jenis huruf, dari font yang sudah di-upload.</small>
+      </label>
+      <label>Upload font baru <span class="hint">(.ttf / .otf)</span>
+        <input data-k="font-upload" type="file" accept=".ttf,.otf">
+        <small class="fh">Tambah file font untuk dipakai field ini.</small>
+      </label>
+      <label>Ukuran Font (pt)
+        <input data-k="font_size" type="number" step="1">
+        <small class="fh">Besar huruf — pakai angka seperti di Canva.</small>
+      </label>
+      <label>Ukuran Min (pt)
+        <input data-k="font_size_min" type="number" step="1" placeholder="opsional">
+        <small class="fh">Batas terkecil huruf saat menyusut. Boleh kosong.</small>
+      </label>
+      <label>Lebar Maks (pt)
+        <input data-k="max_width" type="number" step="1" placeholder="opsional">
+        <small class="fh">Jika teks lebih lebar dari ini, huruf mengecil. Boleh kosong.</small>
+      </label>
+      <label>Warna
+        <input data-k="color" type="color">
+        <small class="fh">Warna huruf.</small>
+      </label>
+      <label>Contoh Nilai
+        <input data-k="sample" type="text">
+        <small class="fh">Teks untuk pratinjau; diganti data asli saat Generate.</small>
+      </label>
+    </div>
+    <div class="row end"><button class="btn danger" data-k="remove">Hapus field</button></div>
+  </div>
+</template>
+{% endblock %}

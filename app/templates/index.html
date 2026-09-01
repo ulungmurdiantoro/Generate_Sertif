@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block page %}index{% endblock %}
+{% block content %}
+<div class="row between">
+  <h1>Template Sertifikat</h1>
+  <button id="btn-new" class="btn primary">+ Template Baru</button>
+</div>
+<p class="hint">
+  Tiap template menyimpan background (depan/belakang), font, dan posisi teks.
+  Setelah siap, buka <strong>Generate</strong> untuk mengunggah data peserta.
+  Sudah punya PDF gabungan dan ingin memecahnya per peserta? Buka menu
+  <a href="/split">Split PDF</a>.
+</p>
+<div id="tpl-list" class="grid"></div>
+{% endblock %}

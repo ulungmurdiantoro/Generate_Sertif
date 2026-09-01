@@ -1,0 +1,17 @@
+.git/
+.venv/
+venv/
+__pycache__/
+*.pyc
+.env
+data/
+*.md
+!README.md
+
+# Aset kerja lokal dari skrip acuan (tidak dibutuhkan di image)
+Book2.xlsx
+*.png
+*.otf
+*.ttf
+25-28*/
+fonts/

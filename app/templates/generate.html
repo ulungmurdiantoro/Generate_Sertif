@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block page %}generate{% endblock %}
+{% block title %}Generate · {{ settings.app_name }}{% endblock %}
+{% block content %}
+<div id="generate" data-template-id="{{ template_id }}">
+  <div class="row between">
+    <h1 id="gen-title">Generate Sertifikat</h1>
+    <a class="btn" href="/templates/{{ template_id }}">← Kembali ke editor</a>
+  </div>
+
+  <section class="panel">
+    <h2>1. Upload Data Peserta</h2>
+    <p class="hint">Format: .xlsx, .xls, atau .csv. Baris pertama harus berisi nama kolom.</p>
+    <input type="file" id="up-data" accept=".xlsx,.xls,.csv">
+    <div id="data-info" hidden>
+      <p><strong id="row-count"></strong> baris terbaca. Contoh 5 baris pertama:</p>
+      <div class="table-wrap"><table id="sample-table"></table></div>
+    </div>
+  </section>
+
+  <section class="panel" id="map-panel" hidden>
+    <h2>2. Petakan Kolom</h2>
+    <p class="hint">Cocokkan tiap field template dengan kolom di file. Pilih "— lewati —" untuk mengabaikan.</p>
+    <div id="mapping" class="form-grid"></div>
+    <label class="block">Kolom untuk nama file PDF
+      <select id="filename-field"></select>
+    </label>
+  </section>
+
+  <section class="panel" id="run-panel" hidden>
+    <h2>3. Jalankan</h2>
+    <button id="btn-run" class="btn primary">Generate &amp; Buat ZIP</button>
+    <div id="progress" hidden>
+      <div class="bar"><div id="bar-fill"></div></div>
+      <p id="progress-text" class="mono"></p>
+    </div>
+    <a id="download-link" class="btn primary btn-lg" hidden>⬇ Unduh ZIP</a>
+  </section>
+</div>
+{% endblock %}

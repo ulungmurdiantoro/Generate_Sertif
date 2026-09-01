@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}{{ settings.app_name }}{% endblock %}</title>
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body data-page="{% block page %}{% endblock %}">
+  <header class="topbar">
+    <a class="brand" href="/">{{ settings.app_name }}</a>
+    <nav>
+      <a href="/">Generate</a>
+      <a href="/split">Split PDF</a>
+    </nav>
+  </header>
+  <main class="container">
+    <div id="msg" class="msg" hidden></div>
+    {% block content %}{% endblock %}
+  </main>
+  <script src="/static/app.js"></script>
+</body>
+</html>

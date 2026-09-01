@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block page %}split{% endblock %}
+{% block title %}Split PDF · {{ settings.app_name }}{% endblock %}
+{% block content %}
+<div id="split">
+  <h1>Split / Pisah PDF Sertifikat</h1>
+  <p class="hint">
+    Pecah satu PDF gabungan menjadi banyak PDF &mdash; satu berkas per peserta.
+    Nama berkas bisa dari nomor urut, kolom Excel/CSV, atau <strong>teks yang
+    tercetak di dalam PDF</strong> (untuk PDF yang teksnya bisa diseleksi).
+  </p>
+
+  <section class="panel">
+    <h2>1. Upload Berkas</h2>
+    <label class="block">PDF gabungan <strong>(wajib)</strong>
+      <input type="file" id="sp-pdf" accept="application/pdf,.pdf">
+    </label>
+    <label class="block">Daftar nama &mdash; Excel/CSV <span class="hint">(opsional)</span>
+      <input type="file" id="sp-data" accept=".xlsx,.xls,.csv">
+    </label>
+    <button id="sp-inspect" class="btn primary">Periksa</button>
+    <p id="sp-info" class="mono" hidden></p>
+    <div id="sp-sample" class="table-wrap" hidden><table id="sp-sample-table"></table></div>
+  </section>
+
+  <section class="panel" id="sp-opts" hidden>
+    <h2>2. Opsi</h2>
+    <div class="form-grid">
+      <label>Halaman per dokumen
+        <input type="number" id="sp-ppd" min="1" step="1" value="1">
+      </label>
+      <label>Sumber nama berkas
+        <select id="sp-source">
+          <option value="sequence">Nomor urut (001, 002, ...)</option>
+          <option value="data">Kolom di Excel/CSV</option>
+          <option value="pdf_text">Teks di dalam PDF</option>
+        </select>
+      </label>
+      <label id="sp-col-wrap" hidden>Kolom nama berkas
+        <select id="sp-col"></select>
+      </label>
+      <label>Awalan nama berkas <span class="hint">(opsional)</span>
+        <input type="text" id="sp-prefix" placeholder="mis. Sertifikat - ">
+      </label>
+      <label>Mulai nomor urut dari
+        <input type="number" id="sp-start" min="0" step="1" value="1">
+      </label>
+    </div>
+
+    <div id="sp-text-opts" hidden>
+      <div class="form-grid">
+        <label>Frasa penanda sebelum nama
+          <input type="text" id="sp-anchor" value="Diberikan kepada">
+        </label>
+        <label>Regex <span class="hint">(lanjutan, opsional &mdash; menang atas frasa)</span>
+          <input type="text" id="sp-regex" placeholder="mis. Kepada:\s*(.+)">
+        </label>
+      </div>
+      <button id="sp-try" class="btn">Coba baca nama</button>
+      <p id="sp-try-note" class="hint"></p>
+      <div id="sp-try-wrap" class="table-wrap" hidden><table id="sp-try-table"></table></div>
+    </div>
+
+    <p id="sp-math" class="hint"></p>
+  </section>
+
+  <section class="panel" id="sp-run-panel" hidden>
+    <h2>3. Jalankan</h2>
+    <button id="sp-run" class="btn primary">Pisahkan &amp; Unduh ZIP</button>
+    <span id="sp-status" class="hint"></span>
+  </section>
+</div>
+{% endblock %}
