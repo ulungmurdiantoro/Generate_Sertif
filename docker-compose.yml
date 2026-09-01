@@ -12,12 +12,22 @@ services:
     expose:
       - "8000"
 
-  nginx:
-    image: nginx:1.27-alpine
+  # Reverse proxy + HTTPS otomatis. Lihat Caddyfile.
+  caddy:
+    image: caddy:2-alpine
     restart: unless-stopped
     ports:
-      - "${HTTP_PORT:-80}:80"
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN:-:80}
     volumes:
-      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
     depends_on:
       - app
+
+volumes:
+  caddy_data:
+  caddy_config:

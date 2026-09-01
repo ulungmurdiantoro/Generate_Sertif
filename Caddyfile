@@ -1,0 +1,19 @@
+# Reverse proxy + HTTPS otomatis (Let's Encrypt).
+#
+# Nilai {$DOMAIN} diambil dari variabel DOMAIN di file .env:
+#   DOMAIN=sertif.contoh.com   -> HTTPS otomatis untuk domain itu
+#   DOMAIN=:80                 -> HTTP saja (mis. akses lewat IP, tanpa domain)
+#
+# Syarat HTTPS: A record domain sudah mengarah ke IP VPS, dan port 80 + 443
+# terbuka / tidak dipakai proses lain.
+
+{$DOMAIN} {
+	encode zstd gzip
+
+	# Samakan dengan MAX_UPLOAD_MB di .env (beri sedikit kelebihan).
+	request_body {
+		max_size 30MB
+	}
+
+	reverse_proxy app:8000
+}

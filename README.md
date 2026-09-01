@@ -77,8 +77,10 @@ Generate_Sertif/
 ├─ data/                      # runtime (template, tmp, output) — dibuat otomatis
 ├─ requirements.txt
 ├─ Dockerfile
-├─ docker-compose.yml
-├─ nginx/nginx.conf
+├─ docker-compose.yml       # app + Caddy (reverse proxy + HTTPS otomatis)
+├─ Caddyfile
+├─ nginx/nginx.conf         # opsional — kalau sudah punya reverse proxy sendiri
+├─ DEPLOY.md                # runbook deploy ke VPS (Debian + Docker + domain)
 └─ .env.example
 ```
 
@@ -123,42 +125,42 @@ Buka <http://127.0.0.1:8000>.
 
 ## Deploy ke VPS dengan Docker (disarankan)
 
+**Panduan lengkap langkah demi langkah ada di [`DEPLOY.md`](DEPLOY.md).** Ringkasnya:
+
 Prasyarat di VPS (Ubuntu/Debian): Docker Engine + plugin Docker Compose.
 
 ```bash
-# 1. Taruh folder proyek di VPS (git clone / scp / rsync), lalu:
-cd Generate_Sertif
+# 1. Ambil kode
+git clone <URL-REPO-GITHUB> generator-sertifikat
+cd generator-sertifikat
 
 # 2. Siapkan konfigurasi
 cp .env.example .env
 nano .env
-#   - WAJIB isi BASIC_AUTH_USER dan BASIC_AUTH_PASS untuk server publik
-#   - sesuaikan HTTP_PORT (80 default), RENDER_WORKERS (≈ jumlah vCPU)
+#   - WAJIB isi BASIC_AUTH_USER + BASIC_AUTH_PASS untuk server publik
+#   - DOMAIN=sertif.contoh.com  (HTTPS otomatis)  ATAU  DOMAIN=:80  (akses via IP)
+#   - RENDER_WORKERS ≈ jumlah vCPU
 
 # 3. Build & jalankan
 docker compose up -d --build
 
 # 4. Cek
 docker compose ps
-docker compose logs -f app
+docker compose logs -f
 ```
 
-Akses: `http://IP-VPS:HTTP_PORT` (mis. `http://IP-VPS/`). Kalau memakai domain,
-arahkan A record ke IP VPS.
+Stack yang jalan: **app** (FastAPI, port internal 8000) + **caddy** (reverse proxy,
+port 80/443, HTTPS Let's Encrypt otomatis bila `DOMAIN` berupa nama domain).
 
 **Update versi:**
 
 ```bash
-git pull            # atau upload ulang file yang berubah
+git pull
 docker compose up -d --build
 ```
 
-**Backup:** cukup arsipkan folder `data/` (berisi semua template + aset).
-`docker compose down` tidak menghapus `data/`.
-
-**HTTPS:** paling praktis pakai reverse proxy ber-TLS di depan stack ini
-(Caddy / Traefik / `nginx-proxy` + `acme-companion`), atau jalankan `certbot`
-di host lalu tambahkan blok `listen 443 ssl;` di `nginx/nginx.conf`.
+**Backup:** arsipkan folder `data/` (semua template + aset). Sertifikat HTTPS
+tersimpan di volume `caddy_data`. `docker compose down` tidak menghapus keduanya.
 
 ---
 
@@ -259,7 +261,7 @@ Lalu reverse proxy nginx di host (`proxy_pass http://127.0.0.1:8000;`,
 | `RENDER_WORKERS` | `4` | Thread render paralel |
 | `JOB_RETENTION_MIN` | `120` | Umur simpan ZIP hasil & data upload |
 | `BASIC_AUTH_USER` / `BASIC_AUTH_PASS` | kosong | Proteksi Basic Auth (isi untuk VPS publik) |
-| `HTTP_PORT` | `80` | Port publik nginx (docker-compose) |
+| `DOMAIN` | `:80` | Domain untuk Caddy. Nama domain → HTTPS otomatis; `:80` → HTTP saja |
 | `FALLBACK_FONTS` | kosong | Path font fallback tambahan (dipisah koma) |
 
 ---
