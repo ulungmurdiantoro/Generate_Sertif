@@ -9,25 +9,8 @@ services:
       DATA_DIR: /data
     volumes:
       - ./data:/data
-    expose:
-      - "8000"
-
-  # Reverse proxy + HTTPS otomatis. Lihat Caddyfile.
-  caddy:
-    image: caddy:2-alpine
-    restart: unless-stopped
+    # Hanya dengar di localhost — nginx host (atau reverse proxy lain di server
+    # ini) yang meneruskan trafik publik + TLS ke sini.
+    # Ganti 8000 di sisi kiri kalau port itu sudah dipakai.
     ports:
-      - "80:80"
-      - "443:443"
-    environment:
-      DOMAIN: ${DOMAIN:-:80}
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy_data:/data
-      - caddy_config:/config
-    depends_on:
-      - app
-
-volumes:
-  caddy_data:
-  caddy_config:
+      - "127.0.0.1:${APP_BIND_PORT:-8000}:8000"

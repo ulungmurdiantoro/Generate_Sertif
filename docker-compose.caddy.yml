@@ -1,0 +1,33 @@
+services:
+  app:
+    build: .
+    image: generator-sertifikat:latest
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      # Selalu tulis ke volume, apa pun isi .env
+      DATA_DIR: /data
+    volumes:
+      - ./data:/data
+    expose:
+      - "8000"
+
+  # Reverse proxy + HTTPS otomatis. Lihat Caddyfile.
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN:-:80}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+
+volumes:
+  caddy_data:
+  caddy_config:

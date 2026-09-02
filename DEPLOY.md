@@ -3,10 +3,11 @@
 Target setup: **Debian 13 + Docker sudah terpasang + akses lewat domain + HTTPS**.
 Kode diambil lewat **git clone dari GitHub**.
 
-Stack yang dijalankan `docker compose`:
+Dua kemungkinan arsitektur (pilih di langkah B5):
 
 ```
-Internet ──▶ caddy (port 80/443, HTTPS otomatis) ──▶ app (FastAPI, port 8000) ──▶ /data (volume)
+Opsi 1 (VPS bersih):   Internet ─▶ caddy :80/:443 (HTTPS auto) ─▶ app :8000 ─▶ /data
+Opsi 2 (ada nginx host): Internet ─▶ nginx host :80/:443 ─▶ app 127.0.0.1:8000 ─▶ /data
 ```
 
 ---
@@ -106,46 +107,73 @@ nano .env
 Isi minimal:
 
 ```ini
-DOMAIN=sertif.sistemedu.com          # domain dari B1 — HTTPS otomatis
 BASIC_AUTH_USER=admin               # ganti
 BASIC_AUTH_PASS=passwordKuatDisini  # ganti — ini gerbang aplikasi
 RENDER_WORKERS=2                    # kira-kira sebanyak vCPU
 MAX_UPLOAD_MB=25
 MAX_ROWS=5000
 JOB_RETENTION_MIN=120
+APP_BIND_PORT=8000                  # port lokal (Opsi 2). Ganti kalau 8000 dipakai
+DOMAIN=sertif.sistemedu.com         # hanya dipakai Opsi 1 (Caddy)
 ```
 
 Simpan: `Ctrl+O`, `Enter`, `Ctrl+X`.
 
-### B6. Jalankan
+Ada **dua cara jalan**, pilih salah satu:
+
+---
+
+### Opsi 1 — VPS bersih (port 80 & 443 masih kosong): pakai Caddy
+
+Caddy otomatis mengurus HTTPS Let's Encrypt.
 
 ```bash
+docker compose -f docker-compose.caddy.yml up -d --build
+docker compose -f docker-compose.caddy.yml logs -f caddy
+```
+
+Di log Caddy tunggu `certificate obtained successfully` untuk domainmu, lalu
+`Ctrl+C`. Buka `https://sertif.sistemedu.com` → prompt login → **Generate**. 🎉
+
+> Semua perintah operasional berikutnya juga pakai `-f docker-compose.caddy.yml`.
+
+---
+
+### Opsi 2 — Server sudah punya nginx untuk domain lain: di belakang nginx host
+
+App hanya dengar di `127.0.0.1:8000`; nginx host jadi pintu depan + HTTPS.
+
+```bash
+# 1. jalankan app (compose default = tanpa Caddy)
 docker compose up -d --build
+docker compose ps
+curl -sS http://127.0.0.1:8000/healthz        # harus: {"ok":true}
+
+# 2. pasang vhost di nginx host
+sudo cp deploy/host-nginx-vhost.conf /etc/nginx/sites-available/sertif.sistemedu.com
+sudo ln -s /etc/nginx/sites-available/sertif.sistemedu.com /etc/nginx/sites-enabled/
+sudo nginx -t && sudo systemctl reload nginx
+
+# 3. terbitkan sertifikat HTTPS (certbot menambah blok 443 + redirect otomatis)
+sudo certbot --nginx -d sertif.sistemedu.com
+sudo systemctl reload nginx
 ```
 
-Pertama kali agak lama (build image + tarik Caddy). Lalu:
+Buka `https://sertif.sistemedu.com` → prompt login → **Generate**. 🎉
 
-```bash
-docker compose ps                   # app & caddy harus "running"/"healthy"
-docker compose logs -f caddy        # lihat proses ambil sertifikat SSL
-```
-
-Di log Caddy cari baris seperti `certificate obtained successfully` untuk
-domainmu. `Ctrl+C` untuk berhenti melihat log (container tetap jalan).
-
-### B7. Tes
-
-Buka `https://sertif.sistemedu.com` di browser → muncul prompt login
-(Basic Auth) → masukkan `BASIC_AUTH_USER` / `BASIC_AUTH_PASS` → halaman
-**Generate** tampil. Selesai. 🎉
-
-Cek gembok HTTPS di address bar. `http://` otomatis dialihkan ke `https://`.
+> Kalau nginx host memakai `/etc/nginx/conf.d/` (bukan `sites-available`),
+> salin file ke `/etc/nginx/conf.d/sertif.sistemedu.com.conf` dan lewati
+> langkah `ln -s`.
 
 ---
 
 ## Bagian C — Operasional harian
 
-| Tugas | Perintah (dari folder `generator-sertifikat` di VPS) |
+Jalankan dari folder proyek (mis. `/var/www/Generate_Sertif`). **Opsi 2** pakai
+perintah `docker compose ...` apa adanya; **Opsi 1** tambahkan
+`-f docker-compose.caddy.yml` pada tiap perintah.
+
+| Tugas | Perintah |
 |---|---|
 | Lihat status | `docker compose ps` |
 | Lihat log aplikasi | `docker compose logs -f app` |
@@ -160,13 +188,13 @@ Cek gembok HTTPS di address bar. `http://` otomatis dialihkan ke `https://`.
 Yang perlu dibackup hanya folder **`data/`** (semua template, background, font).
 
 ```bash
-tar czf ~/backup-sertif-$(date +%F).tar.gz -C ~/generator-sertifikat data
+tar czf ~/backup-sertif-$(date +%F).tar.gz -C /var/www/Generate_Sertif data
 ```
 
 Restore: hentikan stack, ekstrak `data/` kembali ke folder proyek, `up -d` lagi.
 
-Sertifikat HTTPS ada di volume Docker `generator-sertifikat_caddy_data` — tidak
-wajib dibackup (Caddy akan minta ulang otomatis).
+(Opsi 1) sertifikat HTTPS ada di volume `caddy_data` — tidak wajib dibackup.
+(Opsi 2) sertifikat dikelola certbot di host seperti domain lain.
 
 ---
 
