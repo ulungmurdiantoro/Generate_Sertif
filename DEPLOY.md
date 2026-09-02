@@ -54,7 +54,7 @@ Di panel DNS domainmu, buat **A record**:
 |---|---|---|
 | A | `sertif` (atau `@` untuk domain utama) | `<IP-PUBLIK-VPS>` |
 
-Cek dari komputer: `nslookup sertif.domainku.com` harus mengembalikan IP VPS.
+Cek dari komputer: `nslookup sertif.sistemedu.com` harus mengembalikan IP VPS.
 Biasanya 1–30 menit. HTTPS **tidak akan terbit** sebelum DNS benar.
 
 ### B2. Login ke VPS & cek prasyarat
@@ -106,7 +106,7 @@ nano .env
 Isi minimal:
 
 ```ini
-DOMAIN=sertif.domainku.com          # domain dari B1 — HTTPS otomatis
+DOMAIN=sertif.sistemedu.com          # domain dari B1 — HTTPS otomatis
 BASIC_AUTH_USER=admin               # ganti
 BASIC_AUTH_PASS=passwordKuatDisini  # ganti — ini gerbang aplikasi
 RENDER_WORKERS=2                    # kira-kira sebanyak vCPU
@@ -135,8 +135,8 @@ domainmu. `Ctrl+C` untuk berhenti melihat log (container tetap jalan).
 
 ### B7. Tes
 
-Buka `https://sertif.domainku.com` di browser → muncul prompt login
-(Basic Auth) → masukкан `BASIC_AUTH_USER` / `BASIC_AUTH_PASS` → halaman
+Buka `https://sertif.sistemedu.com` di browser → muncul prompt login
+(Basic Auth) → masukkan `BASIC_AUTH_USER` / `BASIC_AUTH_PASS` → halaman
 **Generate** tampil. Selesai. 🎉
 
 Cek gembok HTTPS di address bar. `http://` otomatis dialihkan ke `https://`.
@@ -173,7 +173,7 @@ wajib dibackup (Caddy akan minta ulang otomatis).
 ## Bagian D — Kalau bermasalah
 
 **HTTPS gagal / "your connection is not private"**
-- DNS belum mengarah ke IP VPS → cek `dig sertif.domainku.com +short`.
+- DNS belum mengarah ke IP VPS → cek `dig sertif.sistemedu.com +short`.
 - Port 80 tertutup / dipakai proses lain → cek B3. Caddy butuh port 80 untuk
   verifikasi Let's Encrypt.
 - Terlalu sering coba → kena rate-limit Let's Encrypt (tunggu ~1 jam).
