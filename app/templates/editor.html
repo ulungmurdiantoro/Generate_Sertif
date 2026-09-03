@@ -4,16 +4,16 @@
 {% block content %}
 <div id="editor" data-template-id="{{ template_id }}">
   <div class="row between">
-    <h1 id="tpl-title">Editor Template</h1>
+    <h1><i class="fa-solid fa-pen-ruler" style="color:var(--brand);margin-right:.5rem"></i><span id="tpl-title">Editor Template</span></h1>
     <div class="row gap">
-      <a id="go-generate" class="btn" href="/templates/{{ template_id }}/generate">Lanjut ke Generate →</a>
-      <button id="btn-save" class="btn primary">Simpan</button>
+      <a id="go-generate" class="btn" href="/templates/{{ template_id }}/generate">Lanjut ke Generate <i class="fa-solid fa-arrow-right"></i></a>
+      <button id="btn-save" class="btn primary"><i class="fa-solid fa-floppy-disk"></i> Simpan</button>
     </div>
   </div>
 
   <div class="split">
     <section class="panel">
-      <h2>Info Kanvas</h2>
+      <h2><i class="fa-solid fa-ruler-combined"></i> Info Kanvas</h2>
       <div class="form-grid">
         <label>Nama Template <input id="f-name" type="text"></label>
         <label>Lebar Kanvas (pt) <input id="f-cw" type="number" step="1"></label>
@@ -22,30 +22,30 @@
       </div>
       <p class="hint">Samakan dengan ukuran desain di Canva. A4 landscape = 842 × 595 pt.</p>
 
-      <h2>Aset</h2>
+      <h2><i class="fa-solid fa-images"></i> Aset</h2>
       <div class="asset-row">
         <div class="asset">
-          <strong>Background Depan</strong>
+          <strong><i class="fa-regular fa-image"></i> Background Depan</strong>
           <div id="bg-front-name" class="mono"></div>
           <input type="file" id="up-bg-front" accept="image/*">
         </div>
         <div class="asset">
-          <strong>Background Belakang <span class="hint">(opsional)</span></strong>
+          <strong><i class="fa-regular fa-image"></i> Background Belakang <span class="hint">(opsional)</span></strong>
           <div id="bg-back-name" class="mono"></div>
           <input type="file" id="up-bg-back" accept="image/*">
         </div>
       </div>
 
       <div class="row between">
-        <h2>Field Teks</h2>
-        <button id="btn-add-field" class="btn">+ Tambah Field</button>
+        <h2><i class="fa-solid fa-font"></i> Field Teks</h2>
+        <button id="btn-add-field" class="btn"><i class="fa-solid fa-plus"></i> Tambah Field</button>
       </div>
       <p class="hint">
         Field Teks = potongan tulisan yang dicetak di atas background (mis. nama
         peserta, nomor sertifikat, tanggal). Tambah satu field untuk tiap tulisan.
       </p>
       <details class="field-guide" open>
-        <summary>❔ Penjelasan tiap kolom (buka kalau bingung)</summary>
+        <summary><i class="fa-solid fa-circle-question"></i> Penjelasan tiap kolom (buka kalau bingung)</summary>
         <dl>
           <dt>Key</dt>
           <dd>Kode kolom data. <b>Harus sama persis</b> dengan judul kolom di file
@@ -92,7 +92,7 @@
         </dl>
       </details>
       <details class="fonts-manage">
-        <summary>Font terpasang di template (<span id="font-count">0</span>)</summary>
+        <summary><i class="fa-solid fa-font"></i> Font terpasang di template (<span id="font-count">0</span>)</summary>
         <ul id="font-list" class="chips"></ul>
       </details>
       <div id="fields"></div>
@@ -100,17 +100,17 @@
 
     <aside class="panel preview">
       <div class="row between">
-        <h2>Pratinjau</h2>
+        <h2><i class="fa-solid fa-eye"></i> Pratinjau</h2>
         <div class="row gap">
           <button class="btn tab active" data-page="1">Hal. 1</button>
           <button class="btn tab" data-page="2">Hal. 2</button>
-          <button id="btn-refresh" class="btn" title="Simpan lalu render ulang">↻</button>
+          <button id="btn-refresh" class="btn" title="Simpan lalu render ulang"><i class="fa-solid fa-rotate"></i></button>
         </div>
       </div>
       <div class="preview-frame">
-        <img id="preview-img" alt="Upload background depan lalu tekan ↻ untuk melihat pratinjau">
+        <img id="preview-img" alt="Upload background depan lalu tekan tombol putar untuk melihat pratinjau">
       </div>
-      <p class="hint">Pratinjau memakai nilai <em>Contoh</em> tiap field. Tombol ↻ menyimpan dulu, baru render.</p>
+      <p class="hint">Pratinjau memakai nilai <em>Contoh</em> tiap field. Tombol <i class="fa-solid fa-rotate"></i> menyimpan dulu, baru render.</p>
     </aside>
   </div>
 </div>
@@ -178,7 +178,7 @@
         <small class="fh">Teks untuk pratinjau; diganti data asli saat Generate.</small>
       </label>
     </div>
-    <div class="row end"><button class="btn danger" data-k="remove">Hapus field</button></div>
+    <div class="row end"><button class="btn danger" data-k="remove"><i class="fa-solid fa-trash"></i> Hapus field</button></div>
   </div>
 </template>
 {% endblock %}

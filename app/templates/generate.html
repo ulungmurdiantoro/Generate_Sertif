@@ -4,22 +4,22 @@
 {% block content %}
 <div id="generate" data-template-id="{{ template_id }}">
   <div class="row between">
-    <h1 id="gen-title">Generate Sertifikat</h1>
-    <a class="btn" href="/templates/{{ template_id }}">← Kembali ke editor</a>
+    <h1><i class="fa-solid fa-wand-magic-sparkles" style="color:var(--brand);margin-right:.5rem"></i><span id="gen-title">Generate Sertifikat</span></h1>
+    <a class="btn" href="/templates/{{ template_id }}"><i class="fa-solid fa-arrow-left"></i> Kembali ke editor</a>
   </div>
 
   <section class="panel">
-    <h2>1. Upload Data Peserta</h2>
+    <h2><i class="fa-solid fa-file-arrow-up"></i> 1. Upload Data Peserta</h2>
     <p class="hint">Format: .xlsx, .xls, atau .csv. Baris pertama harus berisi nama kolom.</p>
     <input type="file" id="up-data" accept=".xlsx,.xls,.csv">
     <div id="data-info" hidden>
-      <p><strong id="row-count"></strong> baris terbaca. Contoh 5 baris pertama:</p>
+      <p><i class="fa-solid fa-circle-info" style="color:var(--brand)"></i> <strong id="row-count"></strong> baris terbaca. Contoh 5 baris pertama:</p>
       <div class="table-wrap"><table id="sample-table"></table></div>
     </div>
   </section>
 
   <section class="panel" id="map-panel" hidden>
-    <h2>2. Petakan Kolom</h2>
+    <h2><i class="fa-solid fa-table-columns"></i> 2. Petakan Kolom</h2>
     <p class="hint">Cocokkan tiap field template dengan kolom di file. Pilih "— lewati —" untuk mengabaikan.</p>
     <div id="mapping" class="form-grid"></div>
     <label class="block">Kolom untuk nama file PDF
@@ -28,13 +28,13 @@
   </section>
 
   <section class="panel" id="run-panel" hidden>
-    <h2>3. Jalankan</h2>
-    <button id="btn-run" class="btn primary">Generate &amp; Buat ZIP</button>
+    <h2><i class="fa-solid fa-bolt"></i> 3. Jalankan</h2>
+    <button id="btn-run" class="btn primary"><i class="fa-solid fa-bolt"></i> Generate &amp; Buat ZIP</button>
     <div id="progress" hidden>
       <div class="bar"><div id="bar-fill"></div></div>
       <p id="progress-text" class="mono"></p>
     </div>
-    <a id="download-link" class="btn primary btn-lg" hidden>⬇ Unduh ZIP</a>
+    <a id="download-link" class="btn primary btn-lg" hidden><i class="fa-solid fa-download"></i> Unduh ZIP</a>
   </section>
 </div>
 {% endblock %}

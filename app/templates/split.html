@@ -3,7 +3,7 @@
 {% block title %}Split PDF · {{ settings.app_name }}{% endblock %}
 {% block content %}
 <div id="split">
-  <h1>Split / Pisah PDF Sertifikat</h1>
+  <h1><i class="fa-solid fa-scissors" style="color:var(--brand);margin-right:.5rem"></i>Split / Pisah PDF Sertifikat</h1>
   <p class="hint">
     Pecah satu PDF gabungan menjadi banyak PDF &mdash; satu berkas per peserta.
     Nama berkas bisa dari nomor urut, kolom Excel/CSV, atau <strong>teks yang
@@ -11,20 +11,20 @@
   </p>
 
   <section class="panel">
-    <h2>1. Upload Berkas</h2>
+    <h2><i class="fa-solid fa-file-arrow-up"></i> 1. Upload Berkas</h2>
     <label class="block">PDF gabungan <strong>(wajib)</strong>
       <input type="file" id="sp-pdf" accept="application/pdf,.pdf">
     </label>
     <label class="block">Daftar nama &mdash; Excel/CSV <span class="hint">(opsional)</span>
       <input type="file" id="sp-data" accept=".xlsx,.xls,.csv">
     </label>
-    <button id="sp-inspect" class="btn primary">Periksa</button>
+    <button id="sp-inspect" class="btn primary"><i class="fa-solid fa-magnifying-glass"></i> Periksa</button>
     <p id="sp-info" class="mono" hidden></p>
     <div id="sp-sample" class="table-wrap" hidden><table id="sp-sample-table"></table></div>
   </section>
 
   <section class="panel" id="sp-opts" hidden>
-    <h2>2. Opsi</h2>
+    <h2><i class="fa-solid fa-sliders"></i> 2. Opsi</h2>
     <div class="form-grid">
       <label>Halaman per dokumen
         <input type="number" id="sp-ppd" min="1" step="1" value="1">
@@ -56,7 +56,7 @@
           <input type="text" id="sp-regex" placeholder="mis. Kepada:\s*(.+)">
         </label>
       </div>
-      <button id="sp-try" class="btn">Coba baca nama</button>
+      <button id="sp-try" class="btn"><i class="fa-solid fa-list-check"></i> Coba baca nama</button>
       <p id="sp-try-note" class="hint"></p>
       <div id="sp-try-wrap" class="table-wrap" hidden><table id="sp-try-table"></table></div>
     </div>
@@ -65,8 +65,8 @@
   </section>
 
   <section class="panel" id="sp-run-panel" hidden>
-    <h2>3. Jalankan</h2>
-    <button id="sp-run" class="btn primary">Pisahkan &amp; Unduh ZIP</button>
+    <h2><i class="fa-solid fa-scissors"></i> 3. Jalankan</h2>
+    <button id="sp-run" class="btn primary"><i class="fa-solid fa-scissors"></i> Pisahkan &amp; Unduh ZIP</button>
     <span id="sp-status" class="hint"></span>
   </section>
 </div>

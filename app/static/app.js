@@ -45,22 +45,30 @@ async function initIndex() {
     const items = await api("/api/templates");
     list.innerHTML = "";
     if (!items.length) {
-      list.innerHTML = `<p class="hint">Belum ada template. Klik "Template Baru".</p>`;
+      list.innerHTML = `<div class="empty">
+        <i class="fa-regular fa-folder-open"></i>
+        Belum ada template. Klik <strong>Template Baru</strong> untuk mulai.
+      </div>`;
       return;
     }
     for (const t of items) {
       const card = document.createElement("div");
       card.className = "card";
-      const bgFront = t.bg_front ? "bg depan ✓" : "bg depan ✗";
-      const bgBack = t.bg_back ? " · bg belakang ✓" : "";
+      const front = t.bg_front
+        ? '<i class="fa-solid fa-circle-check" style="color:var(--ok)"></i> bg depan'
+        : '<i class="fa-regular fa-circle"></i> bg depan';
+      const back = t.bg_back
+        ? ' &nbsp;·&nbsp; <i class="fa-solid fa-circle-check" style="color:var(--ok)"></i> bg belakang'
+        : "";
       card.innerHTML = `
+        <div class="card-ico"><i class="fa-solid fa-file-lines"></i></div>
         <h3></h3>
         <p class="mono"></p>
-        <p class="hint">${t.fields.length} field · ${bgFront}${bgBack}</p>
+        <p class="hint"><i class="fa-regular fa-rectangle-list"></i> ${t.fields.length} field &nbsp;·&nbsp; ${front}${back}</p>
         <div class="row gap">
-          <a class="btn" href="/templates/${t.id}">Edit</a>
-          <a class="btn primary" href="/templates/${t.id}/generate">Generate</a>
-          <button class="btn danger" data-del="${t.id}">Hapus</button>
+          <a class="btn" href="/templates/${t.id}"><i class="fa-solid fa-pen"></i> Edit</a>
+          <a class="btn primary" href="/templates/${t.id}/generate"><i class="fa-solid fa-wand-magic-sparkles"></i> Generate</a>
+          <button class="btn danger" data-del="${t.id}"><i class="fa-solid fa-trash"></i> Hapus</button>
         </div>`;
       card.querySelector("h3").textContent = t.name;
       card.querySelector(".mono").textContent = t.id;
@@ -204,7 +212,7 @@ async function initEditor() {
     }
     fonts.forEach((name) => {
       const li = document.createElement("li");
-      li.innerHTML = `<span class="mono"></span> <button class="x" title="hapus">×</button>`;
+      li.innerHTML = `<i class="fa-solid fa-font" style="color:var(--muted)"></i> <span class="mono"></span> <button class="x" title="hapus" aria-label="hapus font"><i class="fa-solid fa-xmark"></i></button>`;
       li.querySelector(".mono").textContent = name;
       li.querySelector("button").addEventListener("click", async () => {
         try {
