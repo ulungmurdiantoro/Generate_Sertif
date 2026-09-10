@@ -110,7 +110,7 @@ Isi minimal:
 BASIC_AUTH_USER=admin               # ganti
 BASIC_AUTH_PASS=passwordKuatDisini  # ganti — ini gerbang aplikasi
 RENDER_WORKERS=2                    # kira-kira sebanyak vCPU
-MAX_UPLOAD_MB=25
+MAX_UPLOAD_MB=300
 MAX_ROWS=5000
 JOB_RETENTION_MIN=120
 APP_BIND_PORT=8000                  # port lokal (Opsi 2). Ganti kalau 8000 dipakai

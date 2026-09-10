@@ -12,7 +12,7 @@
 
 	# Samakan dengan MAX_UPLOAD_MB di .env (beri sedikit kelebihan).
 	request_body {
-		max_size 30MB
+		max_size 330MB
 	}
 
 	reverse_proxy app:8000

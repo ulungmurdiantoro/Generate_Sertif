@@ -256,7 +256,7 @@ Lalu reverse proxy nginx di host (`proxy_pass http://127.0.0.1:8000;`,
 |---|---|---|
 | `APP_NAME` | Generator Sertifikat | Judul di UI |
 | `DATA_DIR` | `./data` | Folder data (Docker memaksa `/data`) |
-| `MAX_UPLOAD_MB` | `25` | Batas ukuran tiap upload |
+| `MAX_UPLOAD_MB` | `300` | Batas ukuran tiap upload |
 | `MAX_ROWS` | `5000` | Batas baris peserta per generate |
 | `RENDER_WORKERS` | `4` | Thread render paralel |
 | `JOB_RETENTION_MIN` | `120` | Umur simpan ZIP hasil & data upload |

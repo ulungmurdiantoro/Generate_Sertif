@@ -33,7 +33,7 @@ class Settings(BaseSettings):
     app_name: str = "Generator Sertifikat"
     data_dir: str = "./data"
 
-    max_upload_mb: int = 25
+    max_upload_mb: int = 300
     max_rows: int = 5000
     render_workers: int = 4
     job_retention_min: int = 120
