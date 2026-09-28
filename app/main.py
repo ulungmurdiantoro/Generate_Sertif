@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import io
+import json
 import os
 import secrets
 from contextlib import asynccontextmanager
@@ -15,15 +16,21 @@ from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from PIL import Image
+from PIL import Image, ImageFont
 
 from . import storage
 from .config import get_settings
-from .jobs import cleanup_old_jobs, get_job, start_job
+from .jobs import cleanup_old_jobs, get_job, start_job, start_split_job
 from .models import (GenerateRequest, SplitPreviewRequest, SplitRequest,
                      TemplateMeta)
 from .renderer import cell_to_str, render_preview_png
-from .splitter import build_zip, count_pages, preview_names, split_pdf
+from .splitter import count_pages, preview_names
+
+IMAGE_EXTS = (".png", ".jpg", ".jpeg", ".webp")
+FONT_EXTS = (".ttf", ".otf", ".ttc")
+# utf-8-sig: CSV "UTF-8" dari Excel diawali BOM. cp1252: CSV biasa dari Excel
+# Windows (apostrof ’ = byte 0x92; latin-1 salah membacanya jadi karakter kontrol).
+CSV_ENCODINGS = ("utf-8-sig", "cp1252", "latin-1")
 
 BASE_DIR = Path(__file__).resolve().parent
 settings = get_settings()
@@ -101,16 +108,53 @@ def _read_dataframe(filename: str, content: bytes) -> pd.DataFrame:
     buffer = io.BytesIO(content)
     try:
         if name.endswith((".csv", ".txt")):
-            try:
-                return pd.read_csv(buffer)
-            except UnicodeDecodeError:
+            for encoding in CSV_ENCODINGS:
                 buffer.seek(0)
-                return pd.read_csv(buffer, encoding="latin-1")
+                try:
+                    return pd.read_csv(buffer, encoding=encoding)
+                except UnicodeDecodeError:
+                    continue
         return pd.read_excel(buffer)
-    except HTTPException:
-        raise
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=400, detail=f"Gagal membaca file data: {exc}")
+
+
+def _ingest_table(upload: UploadFile, content: bytes) -> pd.DataFrame:
+    """Baca Excel/CSV, validasi, dan ubah semua sel jadi string rapi."""
+    df = _read_dataframe(upload.filename or "", content)
+    df.columns = [str(col) for col in df.columns]
+    if len(df) == 0:
+        raise HTTPException(status_code=400, detail="File data tidak punya baris.")
+    if len(df) > settings.max_rows:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Jumlah baris {len(df)} melebihi batas {settings.max_rows}.",
+        )
+    return df.map(cell_to_str)
+
+
+# Data upload disimpan sbg JSON, bukan pickle: memuat pickle = menjalankan kode.
+def _save_table(path: str, df: pd.DataFrame) -> None:
+    with open(path, "w", encoding="utf-8") as handle:
+        json.dump(
+            {"columns": list(df.columns), "rows": df.values.tolist()},
+            handle,
+            ensure_ascii=False,
+        )
+
+
+def _load_table(path: str) -> pd.DataFrame:
+    with open(path, "r", encoding="utf-8") as handle:
+        payload = json.load(handle)
+    return pd.DataFrame(payload["rows"], columns=payload["columns"])
+
+
+def _table_summary(df: pd.DataFrame) -> dict:
+    return {
+        "columns": list(df.columns),
+        "rows": int(len(df)),
+        "sample": df.head(5).to_dict(orient="records"),
+    }
 
 
 # ----------------------------- halaman HTML -------------------------
@@ -201,11 +245,21 @@ async def api_upload_asset(
         raise HTTPException(status_code=400, detail="kind tidak valid.")
     content = await file.read()
     _check_size(content)
+    filename = (file.filename or "").lower()
     if kind in ("bg_front", "bg_back"):
+        if not filename.endswith(IMAGE_EXTS):
+            raise HTTPException(status_code=400, detail="Background harus PNG/JPG/WEBP.")
         try:
             Image.open(io.BytesIO(content)).verify()
         except Exception:  # noqa: BLE001
             raise HTTPException(status_code=400, detail="File bukan gambar yang valid.")
+    else:
+        if not filename.endswith(FONT_EXTS):
+            raise HTTPException(status_code=400, detail="Font harus .ttf / .otf / .ttc.")
+        try:
+            ImageFont.truetype(io.BytesIO(content), 12)
+        except Exception:  # noqa: BLE001
+            raise HTTPException(status_code=400, detail="File bukan font yang valid.")
     cfg = storage.save_asset(template_id, kind, file.filename or kind, content)
     return cfg.model_dump()
 
@@ -236,26 +290,11 @@ async def api_upload_data(template_id: str, file: UploadFile = File(...)):
     _load(template_id)
     content = await file.read()
     _check_size(content)
-
-    df = _read_dataframe(file.filename or "", content)
-    df.columns = [str(col) for col in df.columns]
-    if len(df) == 0:
-        raise HTTPException(status_code=400, detail="File data tidak punya baris.")
-    if len(df) > settings.max_rows:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Jumlah baris {len(df)} melebihi batas {settings.max_rows}.",
-        )
+    df = _ingest_table(file, content)
 
     token = secrets.token_hex(16)
-    df.to_pickle(os.path.join(settings.tmp_dir, f"{token}.pkl"))
-    sample = df.head(5).fillna("").astype(str).to_dict(orient="records")
-    return {
-        "data_token": token,
-        "columns": list(df.columns),
-        "rows": int(len(df)),
-        "sample": sample,
-    }
+    _save_table(os.path.join(settings.tmp_dir, f"{token}.json"), df)
+    return {"data_token": token, **_table_summary(df)}
 
 
 @app.post("/api/templates/{template_id}/generate")
@@ -266,12 +305,12 @@ def api_generate(template_id: str, req: GenerateRequest):
             status_code=400, detail="Template belum punya background halaman depan."
         )
 
-    pkl_path = os.path.join(settings.tmp_dir, f"{req.data_token}.pkl")
-    if not os.path.isfile(pkl_path):
+    data_path = os.path.join(settings.tmp_dir, f"{req.data_token}.json")
+    if not os.path.isfile(data_path):
         raise HTTPException(
             status_code=400, detail="Data kedaluwarsa / tidak ditemukan. Upload ulang."
         )
-    df = pd.read_pickle(pkl_path)
+    df = _load_table(data_path)
 
     keys = {f.key for f in cfg.fields}
     mapping = {k: v for k, v in req.mapping.items() if k in keys and v}
@@ -313,7 +352,7 @@ def api_job_download(job_id: str):
     return FileResponse(
         job.zip_path,
         media_type="application/zip",
-        filename=f"sertifikat_{job_id}.zip",
+        filename=job.download_name,
     )
 
 
@@ -351,19 +390,12 @@ async def api_split_upload(
     if data is not None and (data.filename or "").strip():
         raw = await data.read()
         _check_size(raw)
-        df = _read_dataframe(data.filename or "", raw)
-        df.columns = [str(col) for col in df.columns]
-        if len(df) == 0:
-            raise HTTPException(status_code=400, detail="File daftar nama kosong.")
-        if len(df) > settings.max_rows:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Jumlah baris {len(df)} melebihi batas {settings.max_rows}.",
-            )
-        df.to_pickle(os.path.join(settings.tmp_dir, f"{token}.data.pkl"))
-        result["data_rows"] = int(len(df))
-        result["data_columns"] = list(df.columns)
-        result["data_sample"] = df.head(5).fillna("").astype(str).to_dict(orient="records")
+        df = _ingest_table(data, raw)
+        _save_table(os.path.join(settings.tmp_dir, f"{token}.data.json"), df)
+        summary = _table_summary(df)
+        result["data_rows"] = summary["rows"]
+        result["data_columns"] = summary["columns"]
+        result["data_sample"] = summary["sample"]
 
     return result
 
@@ -397,10 +429,8 @@ def api_split_preview_names(req: SplitPreviewRequest):
 
 @app.post("/api/split/run")
 def api_split_run(req: SplitRequest):
-    with open(_split_pdf_path(req.token), "rb") as handle:
-        pdf_bytes = handle.read()
-
-    data_path = os.path.join(settings.tmp_dir, f"{req.token}.data.pkl")
+    pdf_path = _split_pdf_path(req.token)
+    data_path = os.path.join(settings.tmp_dir, f"{req.token}.data.json")
     has_data = os.path.isfile(data_path)
 
     source = req.name_source or ("data" if (has_data and req.name_column) else "sequence")
@@ -410,8 +440,7 @@ def api_split_run(req: SplitRequest):
     if source == "data":
         if not has_data:
             raise HTTPException(status_code=400, detail="Daftar nama (Excel/CSV) belum diunggah.")
-        df = pd.read_pickle(data_path)
-        df.columns = [str(col) for col in df.columns]
+        df = _load_table(data_path)
         column = req.name_column
         if not column or column not in df.columns:
             raise HTTPException(
@@ -423,32 +452,16 @@ def api_split_run(req: SplitRequest):
     elif source != "sequence":
         raise HTTPException(status_code=400, detail=f"Sumber nama tidak dikenal: {source}")
 
-    try:
-        result = split_pdf(
-            pdf_bytes,
-            names,
-            req.pages_per_doc,
-            req.filename_prefix or "",  # spasi di akhir prefix sengaja dipertahankan
-            req.start_number,
-            name_from_text=name_from_text,
-            text_anchor=req.text_anchor,
-            text_regex=req.text_regex,
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
-
-    files = list(result.files)
-    if result.unreadable:
-        report = (
-            "Berkas berikut namanya TIDAK berhasil dibaca dari teks PDF "
-            "(silakan ganti nama manual):\n\n" + "\n".join(result.unreadable)
-        )
-        files.append(("_TIDAK-TERBACA.txt", report.encode("utf-8")))
-
-    return Response(
-        content=build_zip(files),
-        media_type="application/zip",
-        headers={
-            "Content-Disposition": f'attachment; filename="split_{req.token[:8]}.zip"'
+    job = start_split_job(
+        pdf_path,
+        {
+            "names": names,
+            "pages_per_doc": req.pages_per_doc,
+            "filename_prefix": req.filename_prefix or "",  # spasi di akhir sengaja dipertahankan
+            "start_number": req.start_number,
+            "name_from_text": name_from_text,
+            "text_anchor": req.text_anchor,
+            "text_regex": req.text_regex,
         },
     )
+    return job.public()

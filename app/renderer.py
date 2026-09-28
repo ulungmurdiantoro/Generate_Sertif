@@ -3,9 +3,12 @@ from __future__ import annotations
 import io
 import os
 import re
-from typing import Dict, List, Optional, Tuple
+import unicodedata
+from functools import lru_cache
+from typing import Dict, FrozenSet, List, Optional, Tuple
 
 import pandas as pd
+from fontTools.ttLib import TTFont
 from PIL import Image, ImageDraw, ImageFont
 
 from .config import get_settings
@@ -72,6 +75,44 @@ def resolve_font_path(font_name: str, fonts_dir: str) -> str:
     )
 
 
+_INVISIBLE = dict.fromkeys(map(ord, "​‌‍⁠﻿­"))
+
+# Excel/Word otomatis mengganti ' dan " jadi tanda kutip "pintar". Banyak font
+# dekoratif tidak punya glyph-nya sehingga tercetak kotak/simbol aneh; untuk
+# font seperti itu pakai padanan ASCII-nya.
+_ASCII_FALLBACK = {
+    "‘": "'", "’": "'", "‚": "'", "‛": "'",
+    "ʼ": "'", "′": "'", "´": "'",
+    "“": '"', "”": '"', "„": '"', "″": '"',
+    "‐": "-", "‑": "-", "–": "-", "—": "-", "−": "-",
+    "…": "...",
+    " ": " ", " ": " ", " ": " ",
+}
+
+
+@lru_cache(maxsize=64)
+def _font_codepoints(font_path: str, _mtime: float) -> FrozenSet[int]:
+    try:
+        with TTFont(font_path, fontNumber=0, lazy=True) as font:
+            return frozenset(font.getBestCmap() or {})
+    except Exception:  # noqa: BLE001 - font aneh: jangan ubah teks sama sekali
+        return frozenset()
+
+
+def fit_text_to_font(text: str, font_path: str) -> str:
+    """Rapikan teks agar tiap karakternya punya glyph di font yang dipakai."""
+    text = unicodedata.normalize("NFC", str(text)).translate(_INVISIBLE)
+    try:
+        codepoints = _font_codepoints(font_path, os.path.getmtime(font_path))
+    except OSError:
+        return text
+    if not codepoints:
+        return text
+    return "".join(
+        ch if ord(ch) in codepoints else _ASCII_FALLBACK.get(ch, ch) for ch in text
+    )
+
+
 def _fitted_font(
     draw: ImageDraw.ImageDraw,
     text: str,
@@ -132,6 +173,7 @@ def render_pages(
                 continue
 
             font_path = resolve_font_path(field.font, fonts_dir)
+            text = fit_text_to_font(text, font_path)
             max_width_px = field.max_width * scale if field.max_width else None
             font, text_width, bbox = _fitted_font(
                 draw, text, font_path, field.font_size,

@@ -121,6 +121,13 @@ uvicorn app.main:app --reload
 
 Buka <http://127.0.0.1:8000>.
 
+Menjalankan test:
+
+```powershell
+pip install -r requirements-dev.txt
+python -m pytest -q
+```
+
 ---
 
 ## Deploy ke VPS dengan Docker (disarankan)
@@ -273,10 +280,17 @@ Lalu reverse proxy nginx di host (`proxy_pass http://127.0.0.1:8000;`,
   vertikal pas.
 - Endpoint utama: `GET /` (menu Generate), `GET /split` (menu Split PDF),
   `GET /docs` (OpenAPI), `GET /healthz` (tanpa auth).
-- Split PDF diproses di memori (tanpa job antrean); PDF yang di-upload disimpan
-  sementara di `data/tmp/` dan ikut dibersihkan oleh auto-cleanup.
+- Split PDF berjalan sebagai job di background (sama seperti Generate): hasilnya
+  ditulis langsung ke ZIP di `data/output/`, lalu dipantau lewat `GET /api/jobs/{id}`.
+  PDF yang di-upload disimpan sementara di `data/tmp/`; keduanya ikut dibersihkan
+  oleh auto-cleanup.
 - Mode "Teks di dalam PDF" memakai `pypdf.extract_text()` — hanya untuk PDF
-  yang punya lapisan teks (bukan hasil scan/gambar). Tidak ada OCR.
+  yang punya lapisan teks (bukan hasil scan/gambar). Tidak ada OCR. Teks dengan
+  letter-spacing lebar (`T H I S  C E R T ...`) otomatis dirapikan dulu.
+  Regex tidak memakai DOTALL: `(.+)` berhenti di akhir baris.
   Endpoint: `POST /api/split/preview-names` (pratinjau), `POST /api/split/run`.
+- Karakter yang tidak ada glyph-nya di font (mis. apostrof ’ dari Excel pada font
+  dekoratif) diganti padanan ASCII-nya (`'`) supaya tidak tercetak kotak.
+- CSV dibaca sebagai UTF-8 (dengan/tanpa BOM), lalu cp1252 (CSV bawaan Excel Windows).
 - Format PDF Generate: 1 halaman bila hanya ada background depan, 2 halaman bila
   ada background belakang.

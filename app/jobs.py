@@ -7,19 +7,20 @@ import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
-from typing import Dict, Optional, Set
+from typing import Any, Callable, Dict, Optional, Set
 
 import pandas as pd
 
 from .config import get_settings
 from .models import TemplateConfig
 from .renderer import cell_to_str, clean_filename, render_pages, save_pdf, unique_name
+from .splitter import split_pdf
 
 
 @dataclass
 class Job:
     id: str
-    template_id: str
+    download_name: str
     status: str = "queued"  # queued | running | done | error
     total: int = 0
     done: int = 0
@@ -49,6 +50,14 @@ def get_job(job_id: str) -> Optional[Job]:
     return JOBS.get(job_id)
 
 
+def _spawn(prefix: str, target: Callable[..., None], *args: Any, total: int = 0) -> Job:
+    job_id = uuid.uuid4().hex[:12]
+    job = Job(id=job_id, download_name=f"{prefix}_{job_id}.zip", total=total)
+    JOBS[job.id] = job
+    threading.Thread(target=target, args=(job, *args), daemon=True).start()
+    return job
+
+
 def start_job(
     cfg: TemplateConfig,
     template_dir: str,
@@ -56,15 +65,42 @@ def start_job(
     mapping: Dict[str, str],
     filename_field: str,
 ) -> Job:
-    job = Job(id=uuid.uuid4().hex[:12], template_id=cfg.id, total=len(df))
-    JOBS[job.id] = job
-    worker = threading.Thread(
-        target=_run,
-        args=(job, cfg, template_dir, df, mapping, filename_field),
-        daemon=True,
+    return _spawn(
+        "sertifikat", _run, cfg, template_dir, df, mapping, filename_field, total=len(df)
     )
-    worker.start()
-    return job
+
+
+def start_split_job(pdf_path: str, split_kwargs: Dict[str, Any]) -> Job:
+    return _spawn("split", _run_split, pdf_path, split_kwargs)
+
+
+def _run_split(job: Job, pdf_path: str, split_kwargs: Dict[str, Any]) -> None:
+    zip_path = os.path.join(get_settings().output_dir, f"{job.id}.zip")
+
+    def progress(done: int, total: int) -> None:
+        job.done, job.total = done, total
+
+    try:
+        job.status = "running"
+        with open(pdf_path, "rb") as handle:
+            pdf_bytes = handle.read()
+        result = split_pdf(pdf_bytes, zip_path, progress=progress, **split_kwargs)
+        if result.unreadable:
+            job.message = (
+                f"{len(result.unreadable)} berkas namanya tidak terbaca — "
+                "lihat _TIDAK-TERBACA.txt di dalam ZIP."
+            )
+        job.zip_path = zip_path
+        job.status = "done"
+    except Exception as exc:  # noqa: BLE001
+        job.status = "error"
+        job.message = str(exc)
+        try:
+            os.remove(zip_path)
+        except OSError:
+            pass
+    finally:
+        job.finished = time.time()
 
 
 def _run(
@@ -120,7 +156,11 @@ def _run(
 
 
 def cleanup_old_jobs() -> None:
-    """Hapus ZIP hasil & file data upload yang sudah lewat masa retensi."""
+    """Hapus ZIP hasil & file upload yang sudah lewat masa retensi.
+
+    File di output_dir juga disapu berdasar umur, supaya ZIP dari job yang
+    hilang dari memori (mis. setelah restart) tidak menumpuk selamanya.
+    """
     settings = get_settings()
     ttl = settings.job_retention_min * 60
     now = time.time()
@@ -135,11 +175,13 @@ def cleanup_old_jobs() -> None:
                     pass
             JOBS.pop(job_id, None)
 
-    if os.path.isdir(settings.tmp_dir):
-        for name in os.listdir(settings.tmp_dir):
-            path = os.path.join(settings.tmp_dir, name)
+    for directory in (settings.tmp_dir, settings.output_dir):
+        if not os.path.isdir(directory):
+            continue
+        for name in os.listdir(directory):
+            path = os.path.join(directory, name)
             try:
-                if now - os.path.getmtime(path) > ttl:
+                if os.path.isfile(path) and now - os.path.getmtime(path) > ttl:
                     os.remove(path)
             except OSError:
                 pass

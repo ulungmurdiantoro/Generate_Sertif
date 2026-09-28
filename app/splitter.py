@@ -4,7 +4,7 @@ import io
 import re
 import zipfile
 from dataclasses import dataclass, field
-from typing import List, Optional, Sequence, Tuple
+from typing import Callable, List, Optional, Sequence
 
 from pypdf import PdfReader, PdfWriter
 
@@ -44,9 +44,12 @@ def _degap(text: str) -> str:
     return "\n".join(lines)
 
 
+UNREADABLE_REPORT = "_TIDAK-TERBACA.txt"
+
+
 @dataclass
 class SplitOutput:
-    files: List[Tuple[str, bytes]] = field(default_factory=list)
+    count: int = 0
     unreadable: List[str] = field(default_factory=list)  # nama berkas yang gagal dibaca
 
 
@@ -81,7 +84,8 @@ def extract_name(text: str, anchor: str = "", regex: str = "") -> str:
 
     if regex:
         try:
-            match = re.search(regex, text, re.IGNORECASE | re.DOTALL)
+            # Tanpa DOTALL: "(.+)" berhenti di akhir baris. \s tetap lintas baris.
+            match = re.search(regex, text, re.IGNORECASE)
         except re.error as exc:
             raise ValueError(f"Regex tidak valid: {exc}")
         if not match:
@@ -138,6 +142,7 @@ def preview_names(
 
 def split_pdf(
     pdf_bytes: bytes,
+    zip_path: str,
     names: Optional[Sequence[str]] = None,
     pages_per_doc: int = 1,
     filename_prefix: str = "",
@@ -145,7 +150,9 @@ def split_pdf(
     name_from_text: bool = False,
     text_anchor: str = "",
     text_regex: str = "",
+    progress: Optional[Callable[[int, int], None]] = None,
 ) -> SplitOutput:
+    """Pecah PDF dan tulis tiap dokumen langsung ke ZIP di `zip_path`."""
     pages_per_doc = int(pages_per_doc or 1)
     if pages_per_doc < 1:
         raise ValueError("Halaman per dokumen minimal 1.")
@@ -181,44 +188,47 @@ def split_pdf(
     used: set = set()
     out = SplitOutput()
 
-    for index in range(doc_count):
-        number = start_number + index
+    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as archive:
+        for index in range(doc_count):
+            number = start_number + index
 
-        if name_from_text:
-            chunk = _doc_text(reader, index * pages_per_doc, (index + 1) * pages_per_doc)
-            label = extract_name(chunk, text_anchor, text_regex)
-        elif clean_names is not None:
-            label = clean_names[index]
-        else:
-            label = ""
+            if name_from_text:
+                chunk = _doc_text(reader, index * pages_per_doc, (index + 1) * pages_per_doc)
+                label = extract_name(chunk, text_anchor, text_regex)
+            elif clean_names is not None:
+                label = clean_names[index]
+            else:
+                label = ""
 
-        readable = bool(label) and label.lower() != "nan"
-        if readable:
-            stem = f"{prefix}{label}"
-        elif name_from_text:
-            stem = f"{prefix}TIDAK-TERBACA-{number:03d}"
-        else:
-            stem = f"{prefix}{number:03d}"
-        stem = clean_filename(stem) or f"dokumen_{number}"
-        name = unique_name(stem, used)
+            readable = bool(label) and label.lower() != "nan"
+            if readable:
+                stem = f"{prefix}{label}"
+            elif name_from_text:
+                stem = f"{prefix}TIDAK-TERBACA-{number:03d}"
+            else:
+                stem = f"{prefix}{number:03d}"
+            stem = clean_filename(stem) or f"dokumen_{number}"
+            name = unique_name(stem, used)
 
-        writer = PdfWriter()
-        for page in range(index * pages_per_doc, (index + 1) * pages_per_doc):
-            writer.add_page(reader.pages[page])
-        buffer = io.BytesIO()
-        writer.write(buffer)
+            writer = PdfWriter()
+            for page in range(index * pages_per_doc, (index + 1) * pages_per_doc):
+                writer.add_page(reader.pages[page])
+            buffer = io.BytesIO()
+            writer.write(buffer)
+            filename = f"{name}.pdf"
+            archive.writestr(filename, buffer.getvalue())
 
-        filename = f"{name}.pdf"
-        out.files.append((filename, buffer.getvalue()))
-        if name_from_text and not readable:
-            out.unreadable.append(filename)
+            out.count += 1
+            if name_from_text and not readable:
+                out.unreadable.append(filename)
+            if progress:
+                progress(out.count, doc_count)
+
+        if out.unreadable:
+            report = (
+                "Berkas berikut namanya TIDAK berhasil dibaca dari teks PDF "
+                "(silakan ganti nama manual):\n\n" + "\n".join(out.unreadable)
+            )
+            archive.writestr(UNREADABLE_REPORT, report.encode("utf-8"))
 
     return out
-
-
-def build_zip(files: Sequence[Tuple[str, bytes]]) -> bytes:
-    buffer = io.BytesIO()
-    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
-        for filename, data in files:
-            archive.writestr(filename, data)
-    return buffer.getvalue()

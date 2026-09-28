@@ -24,6 +24,15 @@ function flash(message, kind = "err") {
   if (kind === "ok") setTimeout(() => (el.hidden = true), 3500);
 }
 
+async function waitJob(job, onTick) {
+  while (job.status === "queued" || job.status === "running") {
+    await new Promise((r) => setTimeout(r, 800));
+    job = await api(`/api/jobs/${job.id}`);
+    onTick(job);
+  }
+  return job;
+}
+
 function escapeHtml(value) {
   return String(value).replace(/[&<>"']/g, (c) =>
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])
@@ -421,12 +430,10 @@ async function initGenerate() {
         }),
       });
 
-      while (job.status === "queued" || job.status === "running") {
-        await new Promise((r) => setTimeout(r, 800));
-        job = await api(`/api/jobs/${job.id}`);
-        $("#bar-fill").style.width = `${job.percent}%`;
-        $("#progress-text").textContent = `${job.done}/${job.total} (${job.percent}%)`;
-      }
+      job = await waitJob(job, (j) => {
+        $("#bar-fill").style.width = `${j.percent}%`;
+        $("#progress-text").textContent = `${j.done}/${j.total} (${j.percent}%)`;
+      });
 
       if (job.status === "done") {
         dl.href = job.download_url;
@@ -617,31 +624,24 @@ async function initSplit() {
     try {
       btn.disabled = true;
       status.textContent = "Memproses...";
-      const res = await fetch("/api/split/run", {
+      let job = await api("/api/split/run", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(body),
       });
-      if (!res.ok) {
-        let detail = `HTTP ${res.status}`;
-        try {
-          detail = (await res.json()).detail || detail;
-        } catch (_) {
-          /* keep default */
-        }
-        throw new Error(detail);
-      }
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
+      job = await waitJob(job, (j) => {
+        if (j.total) status.textContent = `Memproses ${j.done}/${j.total} (${j.percent}%)...`;
+      });
+      if (job.status !== "done") throw new Error(`Gagal: ${job.message}`);
+
       const a = document.createElement("a");
-      a.href = url;
-      a.download = `split_${token.slice(0, 8)}.zip`;
+      a.href = job.download_url;
       document.body.appendChild(a);
       a.click();
       a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 10000);
-      status.textContent = "Selesai — ZIP terunduh.";
-      flash("Selesai. ZIP sudah diunduh.", "ok");
+      status.textContent = `Selesai: ${job.done} berkas — ZIP terunduh.`;
+      if (job.message) flash(job.message);
+      else flash("Selesai. ZIP sudah diunduh.", "ok");
     } catch (e) {
       status.textContent = "";
       flash(e.message);

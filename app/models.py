@@ -1,10 +1,17 @@
 from __future__ import annotations
 
-from typing import Dict, List, Optional
+from typing import Annotated, Dict, List, Optional
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, StringConstraints, field_validator
 
 ALIGNMENTS = ("left", "center", "right")
+
+# Token upload selalu dibuat server via secrets.token_hex(16); format lain
+# (mis. "../") ditolak agar tidak bisa dipakai menunjuk file di luar tmp_dir.
+Token = Annotated[str, StringConstraints(pattern=r"^[0-9a-f]{32}$")]
+CanvasSize = Annotated[float, Field(ge=10, le=20000)]
+FontSize = Annotated[float, Field(gt=0, le=1000)]
+Resolution = Annotated[float, Field(ge=36, le=1200)]
 
 
 class TextField(BaseModel):
@@ -23,8 +30,8 @@ class TextField(BaseModel):
     y: float = 0.0
     align: str = "left"
     font: str = Field(default="", description="Nama file font di folder template. Kosong = fallback")
-    font_size: float = 24.0
-    font_size_min: Optional[float] = Field(default=None, description="Batas kecil untuk auto-shrink")
+    font_size: FontSize = 24.0
+    font_size_min: Optional[FontSize] = Field(default=None, description="Batas kecil untuk auto-shrink")
     max_width: Optional[float] = Field(default=None, description="Lebar maks sebelum font mengecil")
     color: str = "#191919"
     sample: str = ""
@@ -55,9 +62,9 @@ class TextField(BaseModel):
 class TemplateConfig(BaseModel):
     id: str
     name: str = "Template Baru"
-    canvas_width: float = 842.0
-    canvas_height: float = 595.0
-    resolution: float = 150.0
+    canvas_width: CanvasSize = 842.0
+    canvas_height: CanvasSize = 595.0
+    resolution: Resolution = 150.0
     bg_front: Optional[str] = None
     bg_back: Optional[str] = None
     fonts: List[str] = Field(default_factory=list)
@@ -68,20 +75,20 @@ class TemplateMeta(BaseModel):
     """Payload create/update metadata + fields (tanpa aset biner)."""
 
     name: Optional[str] = None
-    canvas_width: Optional[float] = None
-    canvas_height: Optional[float] = None
-    resolution: Optional[float] = None
+    canvas_width: Optional[CanvasSize] = None
+    canvas_height: Optional[CanvasSize] = None
+    resolution: Optional[Resolution] = None
     fields: Optional[List[TextField]] = None
 
 
 class GenerateRequest(BaseModel):
-    data_token: str
+    data_token: Token
     mapping: Dict[str, str]
     filename_field: Optional[str] = None
 
 
 class SplitRequest(BaseModel):
-    token: str
+    token: Token
     # "sequence" | "data" | "pdf_text". None = tebak otomatis (data bila ada, else sequence)
     name_source: Optional[str] = None
     name_column: Optional[str] = None
@@ -93,7 +100,7 @@ class SplitRequest(BaseModel):
 
 
 class SplitPreviewRequest(BaseModel):
-    token: str
+    token: Token
     text_anchor: str = ""
     text_regex: str = ""
     pages_per_doc: int = 1
