@@ -18,6 +18,30 @@ from .renderer import clean_filename, unique_name
 
 _DEFAULT_ANCHOR = "diberikan kepada"
 _STRIP_CHARS = " :\t\r\n-–—.·"
+_WORD_GAP_RE = re.compile(r" {2,}")
+
+
+def _degap(text: str) -> str:
+    """Rapikan teks yang hurufnya terpisah spasi akibat letter-spacing lebar.
+
+    Sejumlah desain sertifikat (Canva/Figma/dll) memakai letter-spacing lebar
+    pada judul/nama, sehingga pypdf mengekstraknya sbg "T H I S  C E R T I F I C A T E"
+    -- tiap huruf dipisah 1 spasi, sedangkan antar-kata dipisah 2+ spasi.
+    Gabungkan lagi tiap kelompok huruf-tunggal itu supaya anchor/regex yang
+    ditulis dgn ejaan normal tetap bisa cocok.
+    """
+    lines = []
+    for line in text.splitlines():
+        groups = _WORD_GAP_RE.split(line)
+        merged = []
+        for group in groups:
+            tokens = group.split(" ")
+            if len(tokens) > 1 and all(len(t) <= 1 for t in tokens):
+                merged.append("".join(tokens))
+            else:
+                merged.append(group)
+        lines.append(" ".join(merged))
+    return "\n".join(lines)
 
 
 @dataclass
@@ -32,9 +56,10 @@ def count_pages(pdf_bytes: bytes) -> int:
 
 def _page_text(page) -> str:
     try:
-        return page.extract_text() or ""
+        text = page.extract_text() or ""
     except Exception:  # noqa: BLE001 - pypdf bisa lempar macam-macam untuk PDF rusak
         return ""
+    return _degap(text)
 
 
 def pdf_has_text_layer(pdf_bytes: bytes, sample: int = 8) -> bool:
