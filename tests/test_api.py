@@ -1,4 +1,5 @@
 import io
+import re
 import time
 import zipfile
 
@@ -23,6 +24,12 @@ def _wait(job: dict) -> dict:
 @pytest.fixture
 def template_id():
     return client.post("/api/templates").json()["id"]
+
+
+def test_pages_reference_versioned_static_assets():
+    html = client.get("/split").text
+    assert re.search(r'src="/static/app\.js\?v=[0-9a-f]{10}"', html)
+    assert re.search(r'href="/static/app\.css\?v=[0-9a-f]{10}"', html)
 
 
 # ------------------------------------------------------------- keamanan

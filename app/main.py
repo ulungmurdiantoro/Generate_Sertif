@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import io
 import json
 import os
@@ -83,6 +84,22 @@ app = FastAPI(
 )
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 jinja = Jinja2Templates(directory=str(BASE_DIR / "templates"))
+
+
+# ?v=<hash isi file>: tiap deploy yang mengubah JS/CSS otomatis membatalkan
+# cache browser, supaya JS lama tidak dipakai bersama API yang sudah berubah.
+_STATIC_VERSIONS = {
+    path.name: hashlib.sha256(path.read_bytes()).hexdigest()[:10]
+    for path in (BASE_DIR / "static").iterdir()
+    if path.is_file()
+}
+
+
+def static_url(name: str) -> str:
+    return f"/static/{name}?v={_STATIC_VERSIONS.get(name, '0')}"
+
+
+jinja.env.globals["static_url"] = static_url
 
 
 # ----------------------------- helpers ------------------------------
